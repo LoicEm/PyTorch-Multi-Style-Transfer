@@ -16,9 +16,15 @@ from PIL import Image
 from torch.autograd import Variable
 from torch.utils.serialization import load_lua
 
-from net import Vgg16
+from neural_style.net import Vgg16
 
 def tensor_load_rgbimage(filename, size=None, scale=None, keep_asp=False):
+    """"Load an image as Torch.FloatTensor object
+    filename : path to the file
+    size : width of the resized image
+    scale : if no size is specified, rescale the image to the given ratio.
+    keep_asp : whether or not to keep the aspect ratio when resizing for a given size.
+    If False, the resized image will be the same width and length"""
     img = Image.open(filename).convert('RGB')
     if size is not None:
         if keep_asp:
@@ -84,6 +90,7 @@ def imagenet_clamp_batch(batch, low, high):
 
 
 def preprocess_batch(batch):
+    """Preprocess the batch into a BGR image"""
     batch = batch.transpose(0, 1)
     (r, g, b) = torch.chunk(batch, 3)
     batch = torch.cat((b, g, r))
@@ -129,7 +136,7 @@ def matSqrt(x):
     U,D,V = torch.svd(x)
     return U * (D.pow(0.5).diag()) * V.t()
 
-def color_match(src, dst):
+def color_match(src, dst, cuda=False):
     src_flat = src.view(3,-1)
     dst_flat = dst.view(3,-1)
 
@@ -141,10 +148,16 @@ def color_match(src, dst):
     dst_std = dst_flat.std(1, True)
     dst_norm = (dst_flat - dst_mean) / dst_std
 
-    src_flat_cov_eye = src_norm @ src_norm.t() + Variable(torch.eye(3).cuda())
-    dst_flat_cov_eye = dst_norm @ dst_norm.t() + Variable(torch.eye(3).cuda())
+    # Load on cuda if available otherwise not
+    cud = cuda and torch.cuda.is_available() # TODO add this as an argument
 
-    src_flat_nrom_trans = matSqrt(dst_flat_cov_eye) * \
-        matSqrt(src_flat_cov_eye).inverse * src_norm
+    if cud :
+        src_flat_cov_eye = src_norm @ src_norm.t() + Variable(torch.eye(3).cuda())
+        dst_flat_cov_eye = dst_norm @ dst_norm.t() + Variable(torch.eye(3).cuda())
+    else : # Without cuda
+        src_flat_cov_eye = src_norm @ src_norm.t() + Variable(torch.eye(3))
+        dst_flat_cov_eye = dst_norm @ dst_norm.t() + Variable(torch.eye(3))
+
+    src_flat_nrom_trans = matSqrt(dst_flat_cov_eye) * matSqrt(src_flat_cov_eye).inverse() @ src_norm
     src_flat_transfer = src_flat_nrom_trans * dst_std + dst_mean
     return src_flat_transfer.view_as(src)

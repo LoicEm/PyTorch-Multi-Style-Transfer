@@ -22,13 +22,13 @@ from torch.utils.data import DataLoader
 from torchvision import datasets
 from torchvision import transforms
 
-import utils
-from net import Net, Vgg16
+from neural_style import utils
+from neural_style.net import Net, Vgg16
 
-from option import Options
+from neural_style.option import Options
 
 def main():
-    # figure out the experiments type
+    # figure out the experiment type
     args = Options().parse()
     if args.subcommand is None:
         raise ValueError("ERROR: specify the experiment type")
@@ -235,6 +235,12 @@ def check_paths(args):
 
 
 def evaluate(args):
+    """args:
+        content_image : path to the content image
+        content_size : width of the output image
+        style_image : size of the style image
+        style_size : width of the style image.
+        # TODO add a style_scale argument"""
     content_image = utils.tensor_load_rgbimage(args.content_image, size=args.content_size, keep_asp=True)
     content_image = content_image.unsqueeze(0)
     style = utils.tensor_load_rgbimage(args.style_image, size=args.style_size)
@@ -255,7 +261,7 @@ def evaluate(args):
     style_model.setTarget(style_v)
 
     output = style_model(content_image)
-    output = utils.color_match(output, style_v)
+    # output = utils.color_match(output, style_v) # Commented out for now as it doesn't work
     utils.tensor_save_bgrimage(output.data[0], args.output_image, args.cuda)
 
 
