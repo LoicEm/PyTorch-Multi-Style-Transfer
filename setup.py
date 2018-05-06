@@ -5,6 +5,6 @@ setup(
     name="neuralstyle",
     packages=find_packages(),
     install_requires=["tqdm>=4.23",
-                      "torch>=0.3.0",
+                      "torch==0.3.1",
                       "torchvision>=0.2.1"]
 )
